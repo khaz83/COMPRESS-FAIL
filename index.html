@@ -35,7 +35,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
                     <p class="text-lg font-medium text-gray-700">Klik atau seret fail ke sini</p>
-                    <p class="text-sm text-gray-500 mt-1">Menyokong PDF, PNG, JPG, JPEG</p>
+                    <p class="text-sm text-gray-500 mt-1">Menyokong PDF, PNG, JPG, JPEG (Maksimum 2MB)</p>
                 </div>
             </div>
 
@@ -44,23 +44,26 @@
                 <div class="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-100">
                     <div class="flex items-center space-x-3">
                         <div id="fileIcon" class="text-blue-500">
-                            <!-- Ikon akan berubah ikut jenis fail -->
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
                         </div>
                         <div>
                             <p id="fileName" class="font-semibold text-gray-800 truncate max-w-[200px]"></p>
                             <p id="fileSizeOriginal" class="text-xs text-gray-500"></p>
                         </div>
                     </div>
-                    <div id="processStatus" class="text-sm font-medium text-blue-600 italic">Sedia untuk diproses...</div>
+                    <div id="processStatus" class="text-sm font-medium text-blue-600 italic">Memproses...</div>
                 </div>
 
                 <div id="resultArea" class="hidden p-4 bg-green-50 rounded-lg border border-green-100">
-                    <div class="flex justify-between items-center">
+                    <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
                         <div>
-                            <p class="text-green-800 font-bold">Pemampatan Berjaya!</p>
-                            <p id="fileSizeNew" class="text-sm text-green-700"></p>
+                            <p class="text-green-800 font-bold">Pemampatan Selesai!</p>
+                            <p id="fileSizeNew" class="text-sm text-green-700 font-medium"></p>
+                            <p id="compressionNote" class="text-xs text-green-600 mt-1 italic"></p>
                         </div>
-                        <button id="downloadBtn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition shadow-sm">
+                        <button id="downloadBtn" class="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition shadow-sm">
                             Muat Turun Fail
                         </button>
                     </div>
@@ -72,8 +75,9 @@
             </div>
         </div>
 
-        <footer class="mt-8 text-center text-gray-400 text-xs">
-            Proses dilakukan secara tempatan di pelayar anda. Fail anda tidak akan dimuat naik ke mana-mana pelayan.
+        <footer class="mt-8 text-center text-gray-400 text-xs space-y-1">
+            <p>Sasaran pemampatan: Di bawah 2.0 MB</p>
+            <p>Proses dilakukan secara tempatan di pelayar anda. Privasi anda terjamin.</p>
         </footer>
     </div>
 
@@ -84,6 +88,7 @@
         const fileNameDisp = document.getElementById('fileName');
         const fileSizeOriginalDisp = document.getElementById('fileSizeOriginal');
         const fileSizeNewDisp = document.getElementById('fileSizeNew');
+        const compressionNote = document.getElementById('compressionNote');
         const processStatus = document.getElementById('processStatus');
         const resultArea = document.getElementById('resultArea');
         const errorArea = document.getElementById('errorArea');
@@ -91,8 +96,8 @@
 
         let compressedBlob = null;
         let originalFileName = "";
+        const MAX_SIZE = 2 * 1024 * 1024; // 2MB dalam bytes
 
-        // Fungsi Format Saiz Fail
         function formatBytes(bytes, decimals = 2) {
             if (bytes === 0) return '0 Bytes';
             const k = 1024;
@@ -102,7 +107,6 @@
             return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
         }
 
-        // Event Listeners untuk Drag & Drop
         dropZone.addEventListener('click', () => fileInput.click());
         dropZone.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -127,7 +131,8 @@
             errorArea.classList.add('hidden');
             fileNameDisp.textContent = file.name;
             fileSizeOriginalDisp.textContent = `Saiz Asal: ${formatBytes(file.size)}`;
-            processStatus.textContent = "Memproses...";
+            processStatus.textContent = "Sedang memproses...";
+            compressionNote.textContent = "";
 
             const fileType = file.type;
 
@@ -137,17 +142,16 @@
                 } else if (fileType === 'application/pdf') {
                     await compressPDF(file);
                 } else {
-                    throw new Error("Jenis fail tidak disokong.");
+                    throw new Error("Jenis fail tidak disokong. Sila guna PDF atau Imej.");
                 }
             } catch (err) {
                 console.error(err);
                 processStatus.textContent = "Ralat";
                 errorArea.classList.remove('hidden');
-                errorArea.textContent = err.message || "Gagal memproses fail.";
+                errorArea.textContent = err.message;
             }
         }
 
-        // Mampat Imej menggunakan Canvas
         async function compressImage(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -160,16 +164,12 @@
                         let width = img.width;
                         let height = img.height;
 
-                        // Jika saiz sangat besar, kecilkan dimensi sedikit
-                        const maxDimension = 2000;
-                        if (width > maxDimension || height > maxDimension) {
-                            if (width > height) {
-                                height *= maxDimension / width;
-                                width = maxDimension;
-                            } else {
-                                width *= maxDimension / height;
-                                height = maxDimension;
-                            }
+                        // Langkah 1: Kecilkan dimensi jika fail terlalu besar
+                        let scale = 1;
+                        if (file.size > MAX_SIZE) {
+                            scale = Math.sqrt(MAX_SIZE / file.size) * 0.9;
+                            width *= scale;
+                            height *= scale;
                         }
 
                         canvas.width = width;
@@ -177,14 +177,17 @@
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
 
-                        // Cuba mampat dengan kualiti 0.7 dahulu
+                        // Langkah 2: Pemampatan Kualiti Berulang
                         let quality = 0.8;
                         const attemptCompression = (q) => {
                             canvas.toBlob((blob) => {
-                                if (blob.size > 2 * 1024 * 1024 && q > 0.1) {
-                                    // Jika masih > 2MB, kurangkan kualiti lagi
+                                if (blob.size > MAX_SIZE && q > 0.1) {
+                                    // Kurangkan kualiti jika masih melebihi 2MB
                                     attemptCompression(q - 0.1);
                                 } else {
+                                    if (blob.size > MAX_SIZE) {
+                                        compressionNote.textContent = "Nota: Fail sangat kompleks, saiz dikecilkan sebanyak mungkin.";
+                                    }
                                     finalizeProcess(blob);
                                     resolve();
                                 }
@@ -198,26 +201,28 @@
             });
         }
 
-        // Mampat PDF (Teknik Ringkas: Salin semula dokumen untuk membuang metadata berlebihan)
         async function compressPDF(file) {
-            const arrayBuffer = await file.arrayBuffer();
-            const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
-            
-            // PDF-Lib tidak mempunyai pengecil saiz gambar terbina dalam yang agresif, 
-            // namun ia mengoptimumkan struktur objek PDF.
-            const compressedPdfBytes = await pdfDoc.save({ 
-                useObjectStreams: true,
-                addDefaultPage: false
-            });
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+                
+                // Gunakan Object Streams untuk mengurangkan saiz struktur PDF
+                const compressedPdfBytes = await pdfDoc.save({ 
+                    useObjectStreams: true,
+                    addDefaultPage: false,
+                    updateFieldAppearances: false
+                });
 
-            const blob = new Blob([compressedPdfBytes], { type: 'application/pdf' });
-            
-            if (blob.size > 2 * 1024 * 1024) {
-                // Jika masih besar, beritahu pengguna bahawa PDF sukar dimampat lebih jauh tanpa alat pro
-                processStatus.textContent = "Selesai (Saiz masih > 2MB)";
+                const blob = new Blob([compressedPdfBytes], { type: 'application/pdf' });
+                
+                if (blob.size > MAX_SIZE) {
+                    compressionNote.textContent = "Nota: PDF mengandungi elemen yang sukar dimampat lebih jauh tanpa membuang halaman.";
+                }
+                
+                finalizeProcess(blob);
+            } catch (e) {
+                throw new Error("Gagal memproses fail PDF ini.");
             }
-            
-            finalizeProcess(blob);
         }
 
         function finalizeProcess(blob) {
@@ -232,7 +237,10 @@
             const url = URL.createObjectURL(compressedBlob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `mampat_${originalFileName}`;
+            a.download = `mampat_${originalFileName.replace(/\.[^/.]+$/, "")}.jpg`; // Simpan sebagai jpg untuk pemampatan imej
+            if (compressedBlob.type === 'application/pdf') {
+                a.download = `mampat_${originalFileName}`;
+            }
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
