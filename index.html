@@ -1,251 +1,534 @@
 <!DOCTYPE html>
 <html lang="ms">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pemampat Fail Imej & PDF</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Library untuk memproses PDF -->
-    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <style>
-        .drop-zone {
-            border: 2px dashed #cbd5e1;
-            transition: all 0.3s ease;
-        }
-        .drop-zone.dragover {
-            border-color: #3b82f6;
-            background-color: #eff6ff;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pemampat Fail — PDF · JPG · PNG</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0e0e0f;--surface:#16161a;--surface2:#1e1e24;
+  --border:rgba(255,255,255,0.08);--border-h:rgba(255,255,255,0.18);
+  --text:#f0efe8;--muted:#7a7a84;
+  --accent:#c8f04a;--accent-dim:rgba(200,240,74,0.12);--accent-text:#0e0e0f;
+  --ok:#4af09a;--ok-dim:rgba(74,240,154,0.1);
+  --warn:#f0c44a;--warn-dim:rgba(240,196,74,0.1);
+  --danger:#f05a4a;
+  --r:12px;--rs:8px;
+}
+body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;
+  min-height:100vh;display:flex;flex-direction:column;align-items:center;
+  padding:3rem 1.25rem 5rem}
+.grain{position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  background-size:200px;opacity:.6}
+.wrap{position:relative;z-index:1;width:100%;max-width:640px}
+header{margin-bottom:2.5rem}
+.logo{font-family:'Fraunces',serif;font-size:2.2rem;font-weight:300;letter-spacing:-.02em;color:var(--text);line-height:1.1}
+.logo span{color:var(--accent);font-style:italic}
+.tagline{font-size:.72rem;color:var(--muted);margin-top:.4rem;letter-spacing:.08em;text-transform:uppercase}
+.pill{display:inline-flex;align-items:center;gap:6px;margin-top:.85rem;
+  background:var(--accent-dim);border:1px solid rgba(200,240,74,.25);
+  color:var(--accent);font-size:.7rem;letter-spacing:.05em;padding:4px 12px;border-radius:100px}
+
+.dz{border:1.5px dashed var(--border-h);border-radius:var(--r);padding:2.5rem 2rem;
+  text-align:center;cursor:pointer;transition:all .2s;background:var(--surface);position:relative;overflow:hidden}
+.dz::before{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 0%,rgba(200,240,74,.04) 0%,transparent 70%);pointer-events:none}
+.dz:hover,.dz.drag{border-color:var(--accent);background:var(--surface2)}
+.dz:hover::before,.dz.drag::before{background:radial-gradient(ellipse at 50% 0%,rgba(200,240,74,.09) 0%,transparent 70%)}
+.dz-icon{font-size:2.2rem;margin-bottom:.75rem;display:block;opacity:.45;transition:opacity .2s}
+.dz:hover .dz-icon{opacity:.9}
+.dz-title{font-size:.88rem;color:var(--text);font-weight:500;margin-bottom:.3rem}
+.dz-sub{font-size:.7rem;color:var(--muted)}
+.dz-types{display:flex;gap:6px;justify-content:center;margin-top:.85rem;flex-wrap:wrap}
+.dz-type{font-size:.62rem;letter-spacing:.08em;background:var(--surface2);
+  border:1px solid var(--border);color:var(--muted);padding:2px 10px;border-radius:100px}
+#fi{display:none}
+
+.flist{margin-top:.85rem;display:flex;flex-direction:column;gap:8px}
+.fitem{background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);
+  padding:.75rem 1rem;display:flex;align-items:center;gap:10px;
+  animation:si .2s ease}
+@keyframes si{from{opacity:0;transform:translateY(-5px)}to{opacity:1;transform:translateY(0)}}
+.fbadge{font-size:.58rem;font-weight:500;letter-spacing:.08em;
+  padding:3px 8px;border-radius:4px;flex-shrink:0;text-transform:uppercase}
+.bp{background:rgba(240,90,74,.15);color:#f07a6a;border:1px solid rgba(240,90,74,.2)}
+.bj{background:rgba(240,196,74,.15);color:#f0c44a;border:1px solid rgba(240,196,74,.2)}
+.bn{background:rgba(74,160,240,.15);color:#6ab4f0;border:1px solid rgba(74,160,240,.2)}
+.fmeta{flex:1;min-width:0}
+.fname{font-size:.76rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fsize{font-size:.65rem;color:var(--muted);margin-top:2px}
+.fremove{background:none;border:none;cursor:pointer;color:var(--muted);
+  font-size:.95rem;padding:4px;border-radius:4px;transition:color .15s;flex-shrink:0}
+.fremove:hover{color:var(--danger)}
+.fstatus{font-size:.62rem;letter-spacing:.04em;padding:2px 8px;border-radius:100px;flex-shrink:0;white-space:nowrap}
+.sw{background:var(--surface2);color:var(--muted);border:1px solid var(--border)}
+.sd{background:var(--ok-dim);color:var(--ok);border:1px solid rgba(74,240,154,.2)}
+.sa{background:var(--warn-dim);color:var(--warn);border:1px solid rgba(240,196,74,.2)}
+.sk{background:var(--accent-dim);color:var(--accent);border:1px solid rgba(200,240,74,.2)}
+
+.spanel{margin-top:1rem;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);padding:1.25rem;display:none}
+.stitle{font-size:.65rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.85rem}
+.srow{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:.75rem}
+.srow:last-child{margin-bottom:0}
+.slabel{font-size:.76rem;color:var(--text)}
+.shint{font-size:.63rem;color:var(--muted);margin-top:2px}
+.sctl{display:flex;align-items:center;gap:8px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:130px;height:4px;
+  background:var(--surface2);border-radius:2px;outline:none;border:1px solid var(--border)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+  width:15px;height:15px;border-radius:50%;background:var(--accent);
+  cursor:pointer;border:2px solid var(--bg)}
+.rval{font-size:.73rem;color:var(--accent);min-width:34px;text-align:right;font-weight:500}
+select{background:var(--surface2);color:var(--text);border:1px solid var(--border);
+  border-radius:var(--rs);font-family:'DM Mono',monospace;font-size:.73rem;
+  padding:5px 10px;outline:none;cursor:pointer}
+select:focus{border-color:var(--accent)}
+
+.arow{margin-top:1rem;display:flex;gap:10px}
+.btnp{flex:1;padding:.82rem 1.5rem;background:var(--accent);color:var(--accent-text);
+  border:none;border-radius:var(--rs);font-family:'DM Mono',monospace;
+  font-size:.82rem;font-weight:500;cursor:pointer;letter-spacing:.03em;
+  transition:all .15s;display:flex;align-items:center;justify-content:center;gap:8px}
+.btnp:hover{background:#d4f55e;transform:translateY(-1px)}
+.btnp:active{transform:translateY(0)}
+.btnp:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.btng{padding:.82rem 1.25rem;background:none;color:var(--muted);
+  border:1px solid var(--border);border-radius:var(--rs);
+  font-family:'DM Mono',monospace;font-size:.82rem;cursor:pointer;transition:all .15s}
+.btng:hover{border-color:var(--border-h);color:var(--text)}
+
+.progsec{margin-top:1rem;display:none}
+.progbar{height:3px;background:var(--surface2);border-radius:2px;overflow:hidden;margin-bottom:6px}
+.progfill{height:100%;background:var(--accent);border-radius:2px;transition:width .3s ease;width:0%}
+.proglbl{font-size:.7rem;color:var(--text)}
+.progstep{font-size:.62rem;color:var(--muted);margin-top:3px}
+
+.notebox{background:var(--surface);border:1px solid rgba(200,240,74,.15);
+  border-radius:var(--rs);padding:.85rem 1rem;margin-top:1rem;display:none}
+.notebox p{font-size:.7rem;color:var(--muted);line-height:1.65}
+.notebox strong{color:var(--accent);font-weight:500}
+
+.ressec{margin-top:1.5rem;display:none}
+.restitle{font-size:.65rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.85rem}
+.ritem{background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--rs);padding:1rem;margin-bottom:10px;animation:si .2s ease}
+.ritem.ok{border-color:rgba(74,240,154,.25)}
+.ritem.partial{border-color:rgba(240,196,74,.2)}
+.rtop{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:.75rem}
+.rfname{font-size:.76rem;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rbadge{font-size:.6rem;letter-spacing:.06em;padding:2px 9px;border-radius:100px;flex-shrink:0}
+.bok{background:var(--ok-dim);color:var(--ok)}
+.bwarn{background:var(--warn-dim);color:var(--warn)}
+.rstats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:.75rem}
+.stat{background:var(--surface2);border-radius:6px;padding:8px 10px}
+.statlbl{font-size:.6rem;color:var(--muted);margin-bottom:3px;letter-spacing:.05em}
+.statval{font-size:.95rem;font-weight:500;color:var(--text)}
+.statval.g{color:var(--ok)}
+.statval.a{color:var(--warn)}
+.dlbtn{width:100%;padding:.62rem;background:none;color:var(--accent);
+  border:1px solid rgba(200,240,74,.3);border-radius:var(--rs);
+  font-family:'DM Mono',monospace;font-size:.73rem;font-weight:500;
+  cursor:pointer;transition:all .15s;letter-spacing:.02em;
+  display:flex;align-items:center;justify-content:center;gap:6px}
+.dlbtn:hover{background:var(--accent-dim);border-color:rgba(200,240,74,.5)}
+.warn-note{font-size:.68rem;color:var(--warn);margin-top:.5rem;line-height:1.55;opacity:.85}
+
+footer{margin-top:4rem;text-align:center;font-size:.63rem;color:var(--muted);letter-spacing:.05em;line-height:1.9}
+footer a{color:var(--muted);text-decoration:none}
+footer a:hover{color:var(--text)}
+
+@media(max-width:480px){
+  .logo{font-size:1.75rem}
+  .rstats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  input[type=range]{width:90px}
+}
+</style>
 </head>
-<body class="bg-gray-50 min-h-screen font-sans">
+<body>
+<div class="grain"></div>
+<div class="wrap">
 
-    <div class="max-w-3xl mx-auto py-12 px-4">
-        <div class="text-center mb-10">
-            <h1 class="text-3xl font-bold text-gray-800 mb-2">Pemampat Fail Pintar</h1>
-            <p class="text-gray-600">Kecilkan saiz fail PDF, PNG, JPG, dan JPEG anda ke bawah 2MB dengan mudah.</p>
-        </div>
+<header>
+  <div class="logo">Fail<span>Kecil</span></div>
+  <div class="tagline">Pemampat fail · tiada pelayan · 100% pelayar</div>
+  <div class="pill">◎ Sasaran automatik: di bawah 2 MB</div>
+</header>
 
-        <div class="bg-white rounded-2xl shadow-xl p-8">
-            <!-- Kawasan Muat Naik -->
-            <div id="dropZone" class="drop-zone rounded-xl p-10 text-center cursor-pointer mb-6">
-                <input type="file" id="fileInput" class="hidden" accept=".pdf,.jpg,.jpeg,.png">
-                <div class="flex flex-col items-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
-                    <p class="text-lg font-medium text-gray-700">Klik atau seret fail ke sini</p>
-                    <p class="text-sm text-gray-500 mt-1">Menyokong PDF, PNG, JPG, JPEG (Maksimum 2MB)</p>
-                </div>
-            </div>
+<div class="dz" id="dz" onclick="document.getElementById('fi').click()">
+  <span class="dz-icon">⬆</span>
+  <div class="dz-title">Klik atau seret fail ke sini</div>
+  <div class="dz-sub">Boleh pilih beberapa fail sekaligus</div>
+  <div class="dz-types">
+    <span class="dz-type">PDF</span>
+    <span class="dz-type">JPG</span>
+    <span class="dz-type">JPEG</span>
+    <span class="dz-type">PNG</span>
+  </div>
+</div>
+<input type="file" id="fi" accept=".pdf,.jpg,.jpeg,.png" multiple>
 
-            <!-- Senarai Fail & Status -->
-            <div id="statusArea" class="hidden space-y-4">
-                <div class="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-100">
-                    <div class="flex items-center space-x-3">
-                        <div id="fileIcon" class="text-blue-500">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <p id="fileName" class="font-semibold text-gray-800 truncate max-w-[200px]"></p>
-                            <p id="fileSizeOriginal" class="text-xs text-gray-500"></p>
-                        </div>
-                    </div>
-                    <div id="processStatus" class="text-sm font-medium text-blue-600 italic">Memproses...</div>
-                </div>
+<div class="flist" id="flist"></div>
 
-                <div id="resultArea" class="hidden p-4 bg-green-50 rounded-lg border border-green-100">
-                    <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
-                        <div>
-                            <p class="text-green-800 font-bold">Pemampatan Selesai!</p>
-                            <p id="fileSizeNew" class="text-sm text-green-700 font-medium"></p>
-                            <p id="compressionNote" class="text-xs text-green-600 mt-1 italic"></p>
-                        </div>
-                        <button id="downloadBtn" class="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition shadow-sm">
-                            Muat Turun Fail
-                        </button>
-                    </div>
-                </div>
-
-                <div id="errorArea" class="hidden p-4 bg-red-50 rounded-lg border border-red-100 text-red-700 text-sm italic text-center">
-                    Gagal memproses fail. Sila cuba lagi.
-                </div>
-            </div>
-        </div>
-
-        <footer class="mt-8 text-center text-gray-400 text-xs space-y-1">
-            <p>Sasaran pemampatan: Di bawah 2.0 MB</p>
-            <p>Proses dilakukan secara tempatan di pelayar anda. Privasi anda terjamin.</p>
-        </footer>
+<div class="spanel" id="spanel">
+  <div class="stitle">Tetapan mampatan</div>
+  <div class="srow">
+    <div>
+      <div class="slabel">Saiz sasaran output</div>
+      <div class="shint">Alat mampatkan sehingga saiz ini</div>
     </div>
+    <select id="tgt">
+      <option value="524288">0.5 MB</option>
+      <option value="1048576">1 MB</option>
+      <option value="2097152" selected>2 MB</option>
+      <option value="5242880">5 MB</option>
+    </select>
+  </div>
+  <div class="srow">
+    <div>
+      <div class="slabel">Kualiti permulaan</div>
+      <div class="shint">Alat akan turunkan automatik jika perlu</div>
+    </div>
+    <div class="sctl">
+      <input type="range" id="iq" min="20" max="90" step="5" value="75">
+      <span class="rval" id="iqv">75%</span>
+    </div>
+  </div>
+  <div class="srow">
+    <div>
+      <div class="slabel">Resolusi PDF</div>
+      <div class="shint">Lebih rendah = fail lebih kecil</div>
+    </div>
+    <select id="dpi">
+      <option value="72">72 dpi (paling kecil)</option>
+      <option value="96" selected>96 dpi (disyorkan)</option>
+      <option value="120">120 dpi (berimbang)</option>
+      <option value="150">150 dpi (lebih jelas)</option>
+    </select>
+  </div>
+</div>
 
-    <script>
-        const fileInput = document.getElementById('fileInput');
-        const dropZone = document.getElementById('dropZone');
-        const statusArea = document.getElementById('statusArea');
-        const fileNameDisp = document.getElementById('fileName');
-        const fileSizeOriginalDisp = document.getElementById('fileSizeOriginal');
-        const fileSizeNewDisp = document.getElementById('fileSizeNew');
-        const compressionNote = document.getElementById('compressionNote');
-        const processStatus = document.getElementById('processStatus');
-        const resultArea = document.getElementById('resultArea');
-        const errorArea = document.getElementById('errorArea');
-        const downloadBtn = document.getElementById('downloadBtn');
+<div class="arow" id="arow" style="display:none">
+  <button class="btnp" id="cbtn" onclick="start()">↓ Mampatkan semua</button>
+  <button class="btng" onclick="clearAll()">Kosongkan</button>
+</div>
 
-        let compressedBlob = null;
-        let originalFileName = "";
-        const MAX_SIZE = 2 * 1024 * 1024; // 2MB dalam bytes
+<div class="progsec" id="progsec">
+  <div class="progbar"><div class="progfill" id="pf"></div></div>
+  <div class="proglbl" id="pl">Memproses...</div>
+  <div class="progstep" id="ps"></div>
+</div>
 
-        function formatBytes(bytes, decimals = 2) {
-            if (bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const dm = decimals < 0 ? 0 : decimals;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-        }
+<div class="notebox" id="notebox">
+  <p><strong>Nota PDF:</strong> PDF diproses dengan menukar setiap halaman kepada imej kemudian digabungkan semula. Ini cara paling berkesan untuk kecilkan PDF dalam pelayar. Teks dalam PDF output tidak boleh dipilih/dicopy — ia berbentuk imej.</p>
+</div>
 
-        dropZone.addEventListener('click', () => fileInput.click());
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('dragover');
-        });
-        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-        dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropZone.classList.remove('dragover');
-            const files = e.dataTransfer.files;
-            if (files.length) handleFile(files[0]);
-        });
+<div class="ressec" id="ressec">
+  <div class="restitle">Keputusan mampatan</div>
+  <div id="rlist"></div>
+</div>
 
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length) handleFile(e.target.files[0]);
-        });
+<footer>
+  Semua pemprosesan dalam pelayar — tiada fail dihantar ke mana-mana pelayan.<br>
+  Menggunakan <a href="https://mozilla.github.io/pdf.js/" target="_blank">PDF.js</a> + <a href="https://pdf-lib.js.org/" target="_blank">PDF-lib</a> + Canvas API
+</footer>
+</div>
 
-        async function handleFile(file) {
-            originalFileName = file.name;
-            statusArea.classList.remove('hidden');
-            resultArea.classList.add('hidden');
-            errorArea.classList.add('hidden');
-            fileNameDisp.textContent = file.name;
-            fileSizeOriginalDisp.textContent = `Saiz Asal: ${formatBytes(file.size)}`;
-            processStatus.textContent = "Sedang memproses...";
-            compressionNote.textContent = "";
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-            const fileType = file.type;
+const FILES = [];
+const dz = document.getElementById('dz');
 
-            try {
-                if (fileType.includes('image')) {
-                    await compressImage(file);
-                } else if (fileType === 'application/pdf') {
-                    await compressPDF(file);
-                } else {
-                    throw new Error("Jenis fail tidak disokong. Sila guna PDF atau Imej.");
-                }
-            } catch (err) {
-                console.error(err);
-                processStatus.textContent = "Ralat";
-                errorArea.classList.remove('hidden');
-                errorArea.textContent = err.message;
-            }
-        }
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', e => { if (!dz.contains(e.relatedTarget)) dz.classList.remove('drag'); });
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag'); addFiles(e.dataTransfer.files); });
+document.getElementById('fi').addEventListener('change', e => { addFiles(e.target.files); e.target.value = ''; });
+document.getElementById('iq').addEventListener('input', function() {
+  document.getElementById('iqv').textContent = this.value + '%';
+});
 
-        async function compressImage(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = (event) => {
-                    const img = new Image();
-                    img.src = event.target.result;
-                    img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        let width = img.width;
-                        let height = img.height;
+const fmt = b => b < 1024 ? b + ' B' : b < 1048576 ? (b/1024).toFixed(1) + ' KB' : (b/1048576).toFixed(2) + ' MB';
+const getExt = n => n.split('.').pop().toLowerCase();
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-                        // Langkah 1: Kecilkan dimensi jika fail terlalu besar
-                        let scale = 1;
-                        if (file.size > MAX_SIZE) {
-                            scale = Math.sqrt(MAX_SIZE / file.size) * 0.9;
-                            width *= scale;
-                            height *= scale;
-                        }
+function addFiles(list) {
+  const allowed = ['pdf','jpg','jpeg','png'];
+  for (const f of list) {
+    const e = getExt(f.name);
+    if (!allowed.includes(e)) continue;
+    if (FILES.find(x => x.file.name === f.name && x.file.size === f.size)) continue;
+    FILES.push({ file: f, ext: e });
+  }
+  renderList();
+}
 
-                        canvas.width = width;
-                        canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
+function renderList() {
+  const fl = document.getElementById('flist');
+  const sp = document.getElementById('spanel');
+  const ar = document.getElementById('arow');
+  fl.innerHTML = '';
+  if (!FILES.length) { sp.style.display = 'none'; ar.style.display = 'none'; return; }
+  sp.style.display = 'block'; ar.style.display = 'flex';
+  FILES.forEach((item, i) => {
+    const bc = item.ext === 'pdf' ? 'bp' : item.ext === 'png' ? 'bn' : 'bj';
+    const d = document.createElement('div');
+    d.className = 'fitem';
+    d.innerHTML = `<span class="fbadge ${bc}">${item.ext}</span>
+      <div class="fmeta">
+        <div class="fname">${item.file.name}</div>
+        <div class="fsize">${fmt(item.file.size)}</div>
+      </div>
+      <span class="fstatus sw" id="fs${i}">menunggu</span>
+      <button class="fremove" onclick="removeFile(${i})">✕</button>`;
+    fl.appendChild(d);
+  });
+}
 
-                        // Langkah 2: Pemampatan Kualiti Berulang
-                        let quality = 0.8;
-                        const attemptCompression = (q) => {
-                            canvas.toBlob((blob) => {
-                                if (blob.size > MAX_SIZE && q > 0.1) {
-                                    // Kurangkan kualiti jika masih melebihi 2MB
-                                    attemptCompression(q - 0.1);
-                                } else {
-                                    if (blob.size > MAX_SIZE) {
-                                        compressionNote.textContent = "Nota: Fail sangat kompleks, saiz dikecilkan sebanyak mungkin.";
-                                    }
-                                    finalizeProcess(blob);
-                                    resolve();
-                                }
-                            }, 'image/jpeg', q);
-                        };
+function removeFile(i) {
+  FILES.splice(i, 1); renderList();
+  document.getElementById('ressec').style.display = 'none';
+}
+function clearAll() {
+  FILES.length = 0; renderList();
+  ['ressec','progsec','notebox'].forEach(id => document.getElementById(id).style.display = 'none');
+}
 
-                        attemptCompression(quality);
-                    };
-                };
-                reader.onerror = reject;
-            });
-        }
+function setStatus(i, cls, txt) {
+  const el = document.getElementById('fs' + i);
+  if (el) { el.className = 'fstatus ' + cls; el.textContent = txt; }
+}
+function setProgress(pct, lbl, step) {
+  document.getElementById('pf').style.width = Math.round(pct) + '%';
+  document.getElementById('pl').textContent = lbl;
+  document.getElementById('ps').textContent = step || '';
+}
 
-        async function compressPDF(file) {
-            try {
-                const arrayBuffer = await file.arrayBuffer();
-                const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
-                
-                // Gunakan Object Streams untuk mengurangkan saiz struktur PDF
-                const compressedPdfBytes = await pdfDoc.save({ 
-                    useObjectStreams: true,
-                    addDefaultPage: false,
-                    updateFieldAppearances: false
-                });
+async function start() {
+  if (!FILES.length) return;
+  const btn = document.getElementById('cbtn');
+  btn.disabled = true;
+  document.getElementById('progsec').style.display = 'block';
+  document.getElementById('ressec').style.display = 'none';
+  document.getElementById('notebox').style.display = 'none';
+  document.getElementById('rlist').innerHTML = '';
 
-                const blob = new Blob([compressedPdfBytes], { type: 'application/pdf' });
-                
-                if (blob.size > MAX_SIZE) {
-                    compressionNote.textContent = "Nota: PDF mengandungi elemen yang sukar dimampat lebih jauh tanpa membuang halaman.";
-                }
-                
-                finalizeProcess(blob);
-            } catch (e) {
-                throw new Error("Gagal memproses fail PDF ini.");
-            }
-        }
+  const TARGET = parseInt(document.getElementById('tgt').value);
+  const startQ = parseInt(document.getElementById('iq').value) / 100;
+  const dpiVal = parseInt(document.getElementById('dpi').value);
+  const results = [];
+  let hasPDF = false;
 
-        function finalizeProcess(blob) {
-            compressedBlob = blob;
-            processStatus.textContent = "Selesai!";
-            fileSizeNewDisp.textContent = `Saiz Baru: ${formatBytes(blob.size)}`;
-            resultArea.classList.remove('hidden');
-        }
+  for (let i = 0; i < FILES.length; i++) {
+    const item = FILES[i];
+    setStatus(i, 'sk', 'memproses...');
+    setProgress(Math.round((i / FILES.length) * 90), `[${i+1}/${FILES.length}] ${item.file.name}`, '');
+    await sleep(30);
 
-        downloadBtn.onclick = () => {
-            if (!compressedBlob) return;
-            const url = URL.createObjectURL(compressedBlob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `mampat_${originalFileName.replace(/\.[^/.]+$/, "")}.jpg`; // Simpan sebagai jpg untuk pemampatan imej
-            if (compressedBlob.type === 'application/pdf') {
-                a.download = `mampat_${originalFileName}`;
-            }
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        };
-    </script>
+    try {
+      let res;
+      if (item.ext === 'pdf') {
+        hasPDF = true;
+        res = await compressPDF(item.file, TARGET, startQ, dpiVal, i);
+      } else {
+        res = await compressImage(item.file, TARGET, startQ);
+      }
+      const { blob, passes, achieved } = res;
+      const origSize = item.file.size;
+      const newSize = blob.size;
+      const reduction = Math.round((1 - newSize / origSize) * 100);
+      results.push({ name: item.file.name, ext: item.ext, origSize, newSize, reduction, passes, achieved, blob });
+      setStatus(i, achieved ? 'sd' : 'sa', achieved ? '✓ siap' : '⚠ terbaik');
+    } catch (err) {
+      console.error(err);
+      results.push({ name: item.file.name, ext: item.ext, error: String(err.message || err) });
+      setStatus(i, 'sw', '✕ ralat');
+    }
+  }
+
+  setProgress(100, 'Selesai!', '');
+  setTimeout(() => { document.getElementById('progsec').style.display = 'none'; }, 600);
+  if (hasPDF) document.getElementById('notebox').style.display = 'block';
+  renderResults(results);
+  btn.disabled = false;
+}
+
+function renderResults(results) {
+  const rs = document.getElementById('ressec');
+  const rl = document.getElementById('rlist');
+  rl.innerHTML = ''; rs.style.display = 'block';
+  results.forEach(r => {
+    const d = document.createElement('div');
+    if (r.error) {
+      d.className = 'ritem';
+      d.innerHTML = `<div class="rtop">
+        <span class="rfname">${r.name}</span>
+        <span class="rbadge" style="background:rgba(240,90,74,.1);color:#f07a6a">Ralat</span>
+      </div><div style="font-size:.7rem;color:var(--muted);line-height:1.5">${r.error}</div>`;
+    } else {
+      const pc = r.reduction >= 20 ? 'g' : r.reduction > 0 ? 'a' : '';
+      const outName = r.name.replace(/\.[^.]+$/, '') + '_mampat.' + r.ext;
+      d.className = 'ritem ' + (r.achieved ? 'ok' : 'partial');
+      d.innerHTML = `<div class="rtop">
+        <span class="rfname">${r.name}</span>
+        <span class="rbadge ${r.achieved ? 'bok' : 'bwarn'}">${r.achieved ? '✓ di bawah sasaran' : '⚠ hasil terbaik'}</span>
+      </div>
+      <div class="rstats">
+        <div class="stat"><div class="statlbl">ASAL</div><div class="statval">${fmt(r.origSize)}</div></div>
+        <div class="stat"><div class="statlbl">SELEPAS</div><div class="statval ${r.achieved ? 'g' : 'a'}">${fmt(r.newSize)}</div></div>
+        <div class="stat"><div class="statlbl">JIMAT</div><div class="statval ${pc}">${r.reduction > 0 ? '-' : '+'}${Math.abs(r.reduction)}%</div></div>
+      </div>
+      ${!r.achieved ? '<div class="warn-note">⚠ Tidak dapat mencapai sasaran. Fail ini mungkin sudah termampat atau terlalu kompleks untuk dikecilkan lagi dalam pelayar.</div>' : ''}
+      <button class="dlbtn" id="dl-${r.name}">↓ Muat turun ${outName} (${fmt(r.newSize)})</button>`;
+      d.querySelector('.dlbtn').addEventListener('click', () => dlBlob(r.blob, outName));
+    }
+    rl.appendChild(d);
+  });
+}
+
+function dlBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 8000);
+}
+
+// ═══════════════════════════════════════════════════════════
+// IMEJ — mampatkan dengan canvas, turunkan kualiti & resolusi
+// ═══════════════════════════════════════════════════════════
+async function compressImage(file, target, startQ) {
+  if (file.size <= target) {
+    return { blob: new Blob([await file.arrayBuffer()], { type: file.type }), passes: 0, achieved: true };
+  }
+
+  const img = await new Promise((res, rej) => {
+    const url = URL.createObjectURL(file);
+    const i = new Image();
+    i.onload = () => { URL.revokeObjectURL(url); res(i); };
+    i.onerror = () => { URL.revokeObjectURL(url); rej(new Error('Gagal muatkan imej')); };
+    i.src = url;
+  });
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  let best = null;
+  let passes = 0;
+  let achieved = false;
+
+  // Skala dimensi: cuba dari 100% turun ke 25%
+  const scales = [1.0, 0.85, 0.70, 0.55, 0.45, 0.35, 0.25];
+  // Kualiti: dari startQ turun ke 0.10
+  const qualities = [];
+  for (let q = startQ; q >= 0.10; q -= 0.05) qualities.push(+q.toFixed(2));
+
+  outer:
+  for (const sc of scales) {
+    const w = Math.max(1, Math.round(img.naturalWidth * sc));
+    const h = Math.max(1, Math.round(img.naturalHeight * sc));
+    canvas.width = w; canvas.height = h;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(img, 0, 0, w, h);
+
+    for (const q of qualities) {
+      passes++;
+      // Sentiasa output sebagai JPEG — lebih kecil dari PNG
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', q));
+      if (!blob) continue;
+      if (!best || blob.size < best.size) best = blob;
+      if (blob.size <= target) { achieved = true; best = blob; break outer; }
+    }
+  }
+
+  // Tukar extension ke jpg jika asal PNG (kerana output JPEG)
+  return { blob: best, passes, achieved };
+}
+
+// ═══════════════════════════════════════════════════════════
+// PDF — render setiap halaman ke canvas (PDF.js) → JPEG → PDF baru (pdf-lib)
+// Ini satu-satunya cara berkesan mampatkan PDF dalam pelayar
+// ═══════════════════════════════════════════════════════════
+async function compressPDF(file, target, startQ, dpi, fileIdx) {
+  const buf = await file.arrayBuffer();
+
+  // Muatkan PDF dengan PDF.js
+  const pdfSrc = await pdfjsLib.getDocument({ data: buf.slice(0) }).promise;
+  const numPages = pdfSrc.numPages;
+
+  // Fungsi bina PDF baru pada skala & kualiti tertentu
+  async function buildCompressedPDF(renderScale, quality) {
+    const { PDFDocument } = PDFLib;
+    const newPdf = await PDFDocument.create();
+
+    for (let p = 1; p <= numPages; p++) {
+      setProgress(
+        Math.round(((fileIdx + (p - 1) / numPages) / FILES.length) * 90),
+        `PDF halaman ${p} / ${numPages}`,
+        `skala ${Math.round(renderScale * 100)}%  kualiti ${Math.round(quality * 100)}%`
+      );
+      await sleep(0); // yield supaya UI tidak freeze
+
+      const page = await pdfSrc.getPage(p);
+      const vp = page.getViewport({ scale: renderScale });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(vp.width);
+      canvas.height = Math.round(vp.height);
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      await page.render({ canvasContext: ctx, viewport: vp }).promise;
+
+      // Canvas → JPEG bytes
+      const jpegBlob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+      const jpegBytes = new Uint8Array(await jpegBlob.arrayBuffer());
+
+      // Embed dalam PDF baru
+      const jpegImg = await newPdf.embedJpg(jpegBytes);
+      // Saiz halaman (point) — kekalkan nisbah asal
+      const origVP = page.getViewport({ scale: 1 });
+      const pW = origVP.width;
+      const pH = origVP.height;
+      const pg = newPdf.addPage([pW, pH]);
+      pg.drawImage(jpegImg, { x: 0, y: 0, width: pW, height: pH });
+    }
+
+    const bytes = await newPdf.save({ useObjectStreams: true });
+    return new Blob([bytes], { type: 'application/pdf' });
+  }
+
+  // Skala render berdasarkan DPI pilihan (72pt = 1x)
+  const baseScale = dpi / 72;
+
+  // Cuba kombinasi skala & kualiti secara berurutan
+  // Skala render mempengaruhi ketajaman; kualiti JPEG mempengaruhi saiz
+  const scaleMultipliers = [1.0, 0.8, 0.65, 0.5, 0.4];
+  const qualities = [];
+  for (let q = startQ; q >= 0.15; q -= 0.08) qualities.push(+q.toFixed(2));
+
+  let best = null;
+  let passes = 0;
+  let achieved = false;
+
+  outer:
+  for (const sm of scaleMultipliers) {
+    const sc = baseScale * sm;
+    for (const q of qualities) {
+      passes++;
+      const blob = await buildCompressedPDF(sc, q);
+      if (!best || blob.size < best.size) best = blob;
+      if (blob.size <= target) { achieved = true; best = blob; break outer; }
+    }
+  }
+
+  return { blob: best, passes, achieved: achieved || (best && best.size <= target) };
+}
+</script>
 </body>
 </html>
