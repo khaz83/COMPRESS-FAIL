@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pemampat Fail — PDF · JPG · PNG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0e0e0f;
+    --surface: #16161a;
+    --surface2: #1e1e24;
+    --border: rgba(255,255,255,0.08);
+    --border-hover: rgba(255,255,255,0.18);
+    --text: #f0efe8;
+    --muted: #7a7a84;
+    --accent: #c8f04a;
+    --accent-dim: rgba(200,240,74,0.12);
+    --accent-text: #0e0e0f;
+    --success: #4af09a;
+    --success-dim: rgba(74,240,154,0.1);
+    --warn: #f0c44a;
+    --warn-dim: rgba(240,196,74,0.1);
+    --danger: #f05a4a;
+    --danger-dim: rgba(240,90,74,0.1);
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 3rem 1.25rem 5rem;
+  }
+
+  .grain {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    background-size: 200px;
+    opacity: 0.6;
+  }
+
+  .container { position: relative; z-index: 1; width: 100%; max-width: 640px; }
+
+  header { margin-bottom: 3rem; }
+  .logo {
+    font-family: 'Fraunces', serif;
+    font-size: 2.2rem;
+    font-weight: 300;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    line-height: 1.1;
+  }
+  .logo span { color: var(--accent); font-style: italic; }
+  .tagline {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 0.5rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .target-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 1rem;
+    background: var(--accent-dim);
+    border: 1px solid rgba(200,240,74,0.25);
+    color: var(--accent);
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    padding: 4px 12px;
+    border-radius: 100px;
+  }
+  .target-pill::before { content: '◎'; font-size: 10px; }
+
+  .drop-zone {
+    border: 1.5px dashed var(--border-hover);
+    border-radius: var(--radius);
+    padding: 3rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+  }
+  .drop-zone::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(200,240,74,0.04) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .drop-zone:hover, .drop-zone.drag {
+    border-color: var(--accent);
+    background: var(--surface2);
+  }
+  .drop-zone:hover::before, .drop-zone.drag::before {
+    background: radial-gradient(ellipse at 50% 0%, rgba(200,240,74,0.09) 0%, transparent 70%);
+  }
+  .dz-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    display: block;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+  }
+  .drop-zone:hover .dz-icon { opacity: 0.9; }
+  .dz-title { font-size: 0.9rem; color: var(--text); margin-bottom: 0.4rem; font-weight: 500; }
+  .dz-sub { font-size: 0.72rem; color: var(--muted); }
+  .dz-types {
+    display: flex; gap: 6px; justify-content: center; margin-top: 1rem; flex-wrap: wrap;
+  }
+  .dz-type {
+    font-size: 0.65rem; letter-spacing: 0.08em;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--muted); padding: 2px 10px; border-radius: 100px;
+  }
+  #file-input { display: none; }
+
+  .file-list { margin-top: 1rem; display: flex; flex-direction: column; gap: 8px; }
+  .file-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem 1rem;
+    display: flex; align-items: center; gap: 12px;
+    animation: slideIn 0.2s ease;
+  }
+  @keyframes slideIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+  .file-type-badge {
+    font-size: 0.6rem; font-weight: 500; letter-spacing: 0.08em;
+    padding: 3px 8px; border-radius: 4px; flex-shrink: 0;
+  }
+  .badge-pdf { background: rgba(240,90,74,0.15); color: #f07a6a; border: 1px solid rgba(240,90,74,0.2); }
+  .badge-jpg, .badge-jpeg { background: rgba(240,196,74,0.15); color: #f0c44a; border: 1px solid rgba(240,196,74,0.2); }
+  .badge-png { background: rgba(74,160,240,0.15); color: #6ab4f0; border: 1px solid rgba(74,160,240,0.2); }
+  .file-meta { flex: 1; min-width: 0; }
+  .file-name { font-size: 0.78rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-size-txt { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
+  .file-remove {
+    background: none; border: none; cursor: pointer;
+    color: var(--muted); font-size: 1rem; line-height: 1;
+    padding: 4px; border-radius: 4px; transition: color 0.15s;
+    flex-shrink: 0;
+  }
+  .file-remove:hover { color: var(--danger); }
+  .file-status {
+    font-size: 0.65rem; letter-spacing: 0.05em;
+    padding: 2px 8px; border-radius: 100px; flex-shrink: 0;
+  }
+  .status-waiting { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+  .status-done { background: var(--success-dim); color: var(--success); border: 1px solid rgba(74,240,154,0.2); }
+  .status-warn { background: var(--warn-dim); color: var(--warn); border: 1px solid rgba(240,196,74,0.2); }
+  .status-working { background: var(--accent-dim); color: var(--accent); border: 1px solid rgba(200,240,74,0.2); }
+
+  .settings-panel {
+    margin-top: 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    display: none;
+  }
+  .settings-title {
+    font-size: 0.68rem; color: var(--muted); letter-spacing: 0.1em;
+    text-transform: uppercase; margin-bottom: 1rem;
+  }
+  .setting-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; margin-bottom: 0.85rem;
+  }
+  .setting-row:last-child { margin-bottom: 0; }
+  .setting-label { font-size: 0.78rem; color: var(--text); }
+  .setting-hint { font-size: 0.65rem; color: var(--muted); margin-top: 2px; }
+  .setting-control { display: flex; align-items: center; gap: 8px; }
+  input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    width: 140px; height: 4px;
+    background: var(--surface2); border-radius: 2px; outline: none;
+    border: 1px solid var(--border);
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--accent); cursor: pointer;
+    border: 2px solid var(--bg);
+  }
+  .range-val { font-size: 0.75rem; color: var(--accent); min-width: 36px; text-align: right; font-weight: 500; }
+  select {
+    background: var(--surface2); color: var(--text);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    font-family: 'DM Mono', monospace; font-size: 0.75rem;
+    padding: 5px 10px; outline: none; cursor: pointer;
+  }
+  select:focus { border-color: var(--accent); }
+
+  .action-row { margin-top: 1.25rem; display: flex; gap: 10px; }
+  .btn-primary {
+    flex: 1; padding: 0.85rem 1.5rem;
+    background: var(--accent); color: var(--accent-text);
+    border: none; border-radius: var(--radius-sm);
+    font-family: 'DM Mono', monospace; font-size: 0.82rem; font-weight: 500;
+    cursor: pointer; letter-spacing: 0.03em;
+    transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-primary:hover { background: #d4f55e; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+  .btn-ghost {
+    padding: 0.85rem 1.25rem;
+    background: none; color: var(--muted);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    font-family: 'DM Mono', monospace; font-size: 0.82rem;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .btn-ghost:hover { border-color: var(--border-hover); color: var(--text); }
+
+  .progress-section { margin-top: 1.25rem; display: none; }
+  .progress-bar-wrap {
+    height: 3px; background: var(--surface2);
+    border-radius: 2px; overflow: hidden; margin-bottom: 8px;
+  }
+  .progress-bar-fill {
+    height: 100%; background: var(--accent);
+    border-radius: 2px; transition: width 0.35s ease;
+    width: 0%;
+  }
+  .progress-label { font-size: 0.7rem; color: var(--muted); }
+
+  .results-section { margin-top: 1.5rem; display: none; }
+  .results-title {
+    font-size: 0.68rem; color: var(--muted); letter-spacing: 0.1em;
+    text-transform: uppercase; margin-bottom: 0.85rem;
+  }
+  .result-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 1rem;
+    margin-bottom: 10px;
+    animation: slideIn 0.2s ease;
+  }
+  .result-item.achieved { border-color: rgba(74,240,154,0.2); }
+  .result-item.not-achieved { border-color: rgba(240,196,74,0.2); }
+  .result-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 0.75rem; }
+  .result-fname { font-size: 0.78rem; color: var(--text); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .result-achieved-badge {
+    font-size: 0.62rem; letter-spacing: 0.06em;
+    padding: 2px 9px; border-radius: 100px; flex-shrink: 0;
+  }
+  .badge-ok { background: var(--success-dim); color: var(--success); }
+  .badge-partial { background: var(--warn-dim); color: var(--warn); }
+  .result-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 0.75rem; }
+  .stat { background: var(--surface2); border-radius: 6px; padding: 8px 10px; }
+  .stat-label { font-size: 0.62rem; color: var(--muted); margin-bottom: 3px; letter-spacing: 0.05em; }
+  .stat-val { font-size: 1rem; font-weight: 500; color: var(--text); }
+  .stat-val.green { color: var(--success); }
+  .stat-val.amber { color: var(--warn); }
+  .dl-btn {
+    width: 100%; padding: 0.65rem;
+    background: none; color: var(--accent);
+    border: 1px solid rgba(200,240,74,0.3); border-radius: var(--radius-sm);
+    font-family: 'DM Mono', monospace; font-size: 0.75rem; font-weight: 500;
+    cursor: pointer; transition: all 0.15s; letter-spacing: 0.03em;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .dl-btn:hover { background: var(--accent-dim); border-color: rgba(200,240,74,0.5); }
+
+  footer {
+    margin-top: 4rem; text-align: center;
+    font-size: 0.65rem; color: var(--muted); letter-spacing: 0.06em;
+  }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--text); }
+
+  @media (max-width: 480px) {
+    .logo { font-size: 1.7rem; }
+    .result-stats { grid-template-columns: repeat(2, 1fr); }
+    input[type=range] { width: 100px; }
+  }
+</style>
+</head>
+<body>
+<div class="grain"></div>
+<div class="container">
+
+  <header>
+    <div class="logo">Fail<span>Kecil</span></div>
+    <div class="tagline">Pemampat fail — tiada pelayan · 100% pelayar</div>
+    <div class="target-pill">Sasaran automatik: di bawah 2 MB</div>
+  </header>
+
+  <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+    <span class="dz-icon">⬆</span>
+    <div class="dz-title">Klik atau seret fail ke sini</div>
+    <div class="dz-sub">Boleh pilih beberapa fail sekaligus</div>
+    <div class="dz-types">
+      <span class="dz-type">PDF</span>
+      <span class="dz-type">JPG</span>
+      <span class="dz-type">JPEG</span>
+      <span class="dz-type">PNG</span>
+    </div>
+  </div>
+  <input type="file" id="file-input" accept=".pdf,.jpg,.jpeg,.png" multiple>
+
+  <div class="file-list" id="file-list"></div>
+
+  <div class="settings-panel" id="settings-panel">
+    <div class="settings-title">Tetapan</div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Kualiti imej (JPG/PNG)</div>
+        <div class="setting-hint">Lebih rendah = saiz lebih kecil</div>
+      </div>
+      <div class="setting-control">
+        <input type="range" id="img-quality" min="20" max="92" step="2" value="72">
+        <span class="range-val" id="img-quality-val">72%</span>
+      </div>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Saiz maksimum output</div>
+      </div>
+      <div class="setting-control">
+        <select id="target-size">
+          <option value="524288">0.5 MB</option>
+          <option value="1048576">1 MB</option>
+          <option value="2097152" selected>2 MB</option>
+          <option value="5242880">5 MB</option>
+        </select>
+      </div>
+    </div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">Buang metadata PDF</div>
+      </div>
+      <div class="setting-control">
+        <select id="remove-meta">
+          <option value="yes">Ya</option>
+          <option value="no">Tidak</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="action-row" id="action-row" style="display:none">
+    <button class="btn-primary" id="compress-btn" onclick="startCompression()">
+      ↓ Mampatkan semua
+    </button>
+    <button class="btn-ghost" onclick="clearAll()">Kosongkan</button>
+  </div>
+
+  <div class="progress-section" id="progress-section">
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progress-fill"></div>
+    </div>
+    <div class="progress-label" id="progress-label">Memproses...</div>
+  </div>
+
+  <div class="results-section" id="results-section">
+    <div class="results-title">Keputusan</div>
+    <div id="results-list"></div>
+  </div>
+
+  <footer>
+    Semua pemprosesan berlaku dalam pelayar anda — tiada fail dihantar ke mana-mana pelayan.<br>
+    <a href="https://github.com" target="_blank">GitHub</a> · dibina dengan PDF-lib &amp; Canvas API
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script>
+const FILES = [];
+const dz = document.getElementById('drop-zone');
+
+// Drag & drop
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', e => { if (!dz.contains(e.relatedTarget)) dz.classList.remove('drag'); });
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag'); addFiles(e.dataTransfer.files); });
+document.getElementById('file-input').addEventListener('change', e => { addFiles(e.target.files); e.target.value = ''; });
+document.getElementById('img-quality').addEventListener('input', function() {
+  document.getElementById('img-quality-val').textContent = this.value + '%';
+});
+
+function fmtSize(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+  return (b / (1024 * 1024)).toFixed(2) + ' MB';
+}
+
+function getExt(name) { return name.split('.').pop().toLowerCase(); }
+
+function addFiles(fileList) {
+  const allowed = ['pdf', 'jpg', 'jpeg', 'png'];
+  for (const f of fileList) {
+    const ext = getExt(f.name);
+    if (!allowed.includes(ext)) continue;
+    if (FILES.find(x => x.file.name === f.name && x.file.size === f.size)) continue;
+    FILES.push({ file: f, ext, id: Date.now() + Math.random() });
+  }
+  renderFileList();
+}
+
+function renderFileList() {
+  const list = document.getElementById('file-list');
+  const panel = document.getElementById('settings-panel');
+  const actionRow = document.getElementById('action-row');
+  list.innerHTML = '';
+
+  if (FILES.length === 0) {
+    panel.style.display = 'none';
+    actionRow.style.display = 'none';
+    return;
+  }
+  panel.style.display = 'block';
+  actionRow.style.display = 'flex';
+
+  FILES.forEach((item, idx) => {
+    const ext = item.ext;
+    const div = document.createElement('div');
+    div.className = 'file-item';
+    div.id = 'file-item-' + idx;
+    div.innerHTML = `
+      <span class="file-type-badge badge-${ext}">${ext.toUpperCase()}</span>
+      <div class="file-meta">
+        <div class="file-name">${item.file.name}</div>
+        <div class="file-size-txt">${fmtSize(item.file.size)}</div>
+      </div>
+      <span class="file-status status-waiting" id="status-${idx}">menunggu</span>
+      <button class="file-remove" onclick="removeFile(${idx})" title="Buang">✕</button>
+    `;
+    list.appendChild(div);
+  });
+}
+
+function removeFile(idx) {
+  FILES.splice(idx, 1);
+  renderFileList();
+  document.getElementById('results-section').style.display = 'none';
+}
+
+function clearAll() {
+  FILES.length = 0;
+  renderFileList();
+  document.getElementById('results-section').style.display = 'none';
+  document.getElementById('progress-section').style.display = 'none';
+}
+
+function setStatus(idx, cls, txt) {
+  const el = document.getElementById('status-' + idx);
+  if (el) { el.className = 'file-status ' + cls; el.textContent = txt; }
+}
+
+function setProgress(pct, label) {
+  document.getElementById('progress-fill').style.width = Math.round(pct) + '%';
+  document.getElementById('progress-label').textContent = label;
+}
+
+async function startCompression() {
+  if (FILES.length === 0) return;
+  const btn = document.getElementById('compress-btn');
+  btn.disabled = true;
+  const progSec = document.getElementById('progress-section');
+  const resSec = document.getElementById('results-section');
+  const resList = document.getElementById('results-list');
+  progSec.style.display = 'block';
+  resSec.style.display = 'none';
+  resList.innerHTML = '';
+
+  const TARGET = parseInt(document.getElementById('target-size').value);
+  const imgQ = parseInt(document.getElementById('img-quality').value) / 100;
+  const removeMeta = document.getElementById('remove-meta').value === 'yes';
+  const results = [];
+
+  for (let i = 0; i < FILES.length; i++) {
+    const item = FILES[i];
+    setStatus(i, 'status-working', 'memproses...');
+    setProgress((i / FILES.length) * 90, `[${i+1}/${FILES.length}] ${item.file.name}`);
+    await new Promise(r => setTimeout(r, 30));
+
+    try {
+      let resultBlob, passes = 0, achieved = false;
+
+      if (item.ext === 'pdf') {
+        const { blob, p, ok } = await compressPDF(item.file, TARGET, removeMeta);
+        resultBlob = blob; passes = p; achieved = ok;
+      } else {
+        const { blob, p, ok } = await compressImage(item.file, TARGET, imgQ, item.ext);
+        resultBlob = blob; passes = p; achieved = ok;
+      }
+
+      const origSize = item.file.size;
+      const newSize = resultBlob.size;
+      const reduction = Math.round((1 - newSize / origSize) * 100);
+      results.push({ name: item.file.name, ext: item.ext, origSize, newSize, reduction, passes, achieved, blob: resultBlob });
+      setStatus(i, achieved ? 'status-done' : 'status-warn', achieved ? '✓ siap' : '⚠ terbaik');
+    } catch(err) {
+      results.push({ name: item.file.name, ext: item.ext, error: err.message });
+      setStatus(i, 'status-waiting', '✕ ralat');
+    }
+  }
+
+  setProgress(100, 'Selesai!');
+  setTimeout(() => { progSec.style.display = 'none'; }, 800);
+
+  renderResults(results);
+  btn.disabled = false;
+}
+
+function renderResults(results) {
+  const resSec = document.getElementById('results-section');
+  const resList = document.getElementById('results-list');
+  resList.innerHTML = '';
+  resSec.style.display = 'block';
+
+  results.forEach(r => {
+    const div = document.createElement('div');
+    div.className = 'result-item ' + (r.error ? '' : r.achieved ? 'achieved' : 'not-achieved');
+
+    if (r.error) {
+      div.innerHTML = `
+        <div class="result-top">
+          <span class="result-fname">${r.name}</span>
+          <span class="result-achieved-badge" style="background:rgba(240,90,74,0.1);color:#f07a6a;">Ralat</span>
+        </div>
+        <div style="font-size:0.72rem;color:var(--muted)">${r.error}</div>
+      `;
+    } else {
+      const pctColor = r.reduction >= 30 ? 'green' : r.reduction > 0 ? 'amber' : '';
+      div.innerHTML = `
+        <div class="result-top">
+          <span class="result-fname">${r.name}</span>
+          <span class="result-achieved-badge ${r.achieved ? 'badge-ok' : 'badge-partial'}">${r.achieved ? '✓ di bawah sasaran' : '⚠ hasil terbaik'}</span>
+        </div>
+        <div class="result-stats">
+          <div class="stat">
+            <div class="stat-label">ASAL</div>
+            <div class="stat-val">${fmtSize(r.origSize)}</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">SELEPAS</div>
+            <div class="stat-val ${r.achieved ? 'green' : 'amber'}">${fmtSize(r.newSize)}</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">JIMAT</div>
+            <div class="stat-val ${pctColor}">${r.reduction > 0 ? '-' : '+'}${Math.abs(r.reduction)}%</div>
+          </div>
+        </div>
+        <button class="dl-btn" onclick="downloadBlob(this)" data-name="${r.name.replace(/\.[^.]+$/, '')}_mampat.${r.ext}">
+          ↓ Muat turun
+        </button>
+      `;
+      div.querySelector('.dl-btn')._blob = r.blob;
+    }
+    resList.appendChild(div);
+  });
+}
+
+function downloadBlob(btn) {
+  const blob = btn._blob;
+  const name = btn.dataset.name;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+// ── PDF compression ──────────────────────────────────────────────
+async function compressPDF(file, target, removeMeta) {
+  const origBuf = await file.arrayBuffer();
+  if (origBuf.byteLength <= target) {
+    return { blob: new Blob([origBuf], { type: 'application/pdf' }), p: 0, ok: true };
+  }
+
+  const { PDFDocument } = PDFLib;
+  let current = origBuf;
+  let best = origBuf;
+  let passes = 0;
+
+  // Pass 1: object streams + optional metadata removal
+  try {
+    const doc = await PDFDocument.load(current, { updateMetadata: false });
+    if (removeMeta) stripMeta(doc);
+    const saved = await doc.save({ useObjectStreams: true, addDefaultPage: false });
+    passes++; if (saved.byteLength < best.byteLength) best = saved;
+    if (saved.byteLength <= target) return { blob: new Blob([saved], { type: 'application/pdf' }), p: passes, ok: true };
+    current = saved;
+  } catch(e) {}
+
+  // Pass 2: force remove meta + save again
+  try {
+    const doc = await PDFDocument.load(current, { updateMetadata: false });
+    stripMeta(doc);
+    const saved = await doc.save({ useObjectStreams: true, addDefaultPage: false });
+    passes++; if (saved.byteLength < best.byteLength) best = saved;
+    if (saved.byteLength <= target) return { blob: new Blob([saved], { type: 'application/pdf' }), p: passes, ok: true };
+    current = saved;
+  } catch(e) {}
+
+  // Pass 3: load + re-save once more to trigger internal deduplication
+  try {
+    const doc = await PDFDocument.load(current, { updateMetadata: false });
+    stripMeta(doc);
+    const saved = await doc.save({ useObjectStreams: true, addDefaultPage: false });
+    passes++; if (saved.byteLength < best.byteLength) best = saved;
+    if (saved.byteLength <= target) return { blob: new Blob([saved], { type: 'application/pdf' }), p: passes, ok: true };
+  } catch(e) {}
+
+  return {
+    blob: new Blob([best], { type: 'application/pdf' }),
+    p: passes,
+    ok: best.byteLength <= target
+  };
+}
+
+function stripMeta(doc) {
+  try { doc.setTitle(''); doc.setAuthor(''); doc.setSubject(''); doc.setKeywords([]); doc.setProducer(''); doc.setCreator(''); } catch(e) {}
+}
+
+// ── Image compression ─────────────────────────────────────────────
+async function compressImage(file, target, startQuality, ext) {
+  const bitmap = await createImageBitmap(file);
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  // Try multiple scale + quality combinations until under target
+  const scaleSteps = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4];
+  const qualitySteps = [startQuality, startQuality - 0.1, startQuality - 0.2, startQuality - 0.3, 0.4, 0.3, 0.2];
+  const mimeType = (ext === 'png') ? 'image/png' : 'image/jpeg';
+  let best = null, passes = 0, achieved = false;
+
+  outer:
+  for (const scale of scaleSteps) {
+    const w = Math.round(bitmap.width * scale);
+    const h = Math.round(bitmap.height * scale);
+    canvas.width = w; canvas.height = h;
+    ctx.clearRect(0, 0, w, h);
+    if (ext === 'png') ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(bitmap, 0, 0, w, h);
+
+    for (const q of qualitySteps) {
+      passes++;
+      const blob = await new Promise(res => canvas.toBlob(res, mimeType, q));
+      if (!blob) continue;
+      if (!best || blob.size < best.size) best = blob;
+      if (blob.size <= target) { achieved = true; best = blob; break outer; }
+    }
+    if (passes > 30) break;
+  }
+
+  bitmap.close();
+  return { blob: best || new Blob([await file.arrayBuffer()], { type: file.type }), p: passes, ok: achieved };
+}
+</script>
+</body>
+</html>
